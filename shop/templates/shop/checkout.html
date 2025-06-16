@@ -1,0 +1,230 @@
+{% extends "shop/base.html" %}
+
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h3 class="text-center">Voici votre liste</h3>
+        <ul class="list-group" id="item-list"></ul>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="items" id="items-field"> 
+            <div class="row">
+                <div class="form-group col-md-6">
+                    <label for="nom">Nom</label>
+                    <input type="text" id="nom" name="nom" class="form-control" placeholder="ex:Yero">
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" class="form-control" placeholder="ex:yero@gmail.com">
+                </div>
+            </div>
+
+            <!-- Adresse -->
+            <div class="row">
+            <div class="form-group col-md-6">
+                <label for="address">Adresse</label>
+                <input type="text" id="address" name="address" class="form-control" placeholder="ex:1234 rue">
+            </div>
+
+             <div class="form-group col-md-6">
+                <label for="tel">tel</label>
+                <input type="tel" id="tel" name="tel" class="form-control"
+                placeholder="ex:+224 600 00 00 00"
+                pattern="^\+?[0-9\s\-]{7,15}$" required>
+            </div>
+            <!-- Ligne Ville / Pays / Code postal -->
+            <div class="row mt-3">
+                <div class="form-group col-md-4">
+                    <label for="ville">Ville</label>
+                    <input type="text" name="ville" id="ville" class="form-control">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="pays">Pays</label>
+                    <select id="pays" name="pays" class="form-control">
+                        <option selected>Guinée</option>
+                        <option>Sénégal</option>
+                        <option>Cameroon</option>
+                        <option>Côte d'Ivoire</option>
+                        <option>Sierra Leone</option>
+                        <option>France</option>
+                        <option>Mali</option>
+                        <option>Belgique</option>
+                        <option>Canada</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                     <!-- Champ texte caché par défaut -->
+                    <div id="autre-pays-container" style="display: none;" class="mt-2">
+                         <label for="autre_pays">Entrez votre pays</label>
+                         <input type="text" id="autre_pays" name="autre_pays" class="form-control" placeholder="Votre pays">
+                    </div>
+                </div>
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="zipcode">Code postal</label>
+                    <input name="zipcode" id="zipcode" type="text" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-group col-md-4">
+                    <label for="ville">Somme Total a Payer</label>
+                    <input type="readonly" name="total" id="total" class="bg-dark text-warning form-control">
+                </div>
+
+            <!-- Boutons -->
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Commander</button>
+                <button type="button" id="viderPanier" class="btn btn-danger ms-2">Vider le panier</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block js %}
+<script type="text/javascript">
+    let panier = {};
+
+    if (localStorage.getItem('panier') !== null) {
+        panier = JSON.parse(localStorage.getItem('panier'));
+    }
+    var total= 0;
+    var nombre=0;
+    // Afficher les éléments dans la liste UL
+    for (let item in panier) {
+        let nom = panier[item][1];
+        let quantite = panier[item][0];
+        let prix=panier[item][2]
+         nombre+=quantite;
+         total+=prix;
+        let itemString = `<li class="list-group-item d-flex justify-content-between align-items-center">
+            ${nom}
+            <span class="badge bg-primary badge-rounded-pill">QTE: ${quantite}</span>
+            <span class="badge bg-warning badge-pill">${prix} GNF</span>
+        </li>`;
+
+        $('#item-list').append(itemString);
+    }
+      let itemNombre = `<li class="list-group-item d-flex justify-content-between align-items-center">
+            <b class="bg-danger"> PRIX ET QUANTE TOTAL </b>
+            <span class="badge bg-danger badge-rounded-pill">TQTE: ${nombre}</span>
+            <span class="badge bg-danger badge-pill"> ${total} GNF</span>
+        </li>`;
+        $('#item-list').append(itemNombre);
+        $('#total').val(total+" GNF");
+    // Attache l'événement au bouton
+    document.getElementById("viderPanier").addEventListener("click", viderPanier);
+
+    // Fonction pour vider le panier avec confirmation
+    function viderPanier() {
+        if (Object.keys(panier).length === 0) {
+            Swal.fire({
+                icon: 'info',
+                title: 'Panier vide',
+                text: "Il n'y a rien à vider dans le panier.",
+            });
+            return;
+        }
+
+        Swal.fire({
+            title: 'Êtes-vous sûr ?',
+            text: "Vous êtes sur le point de vider votre panier.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Oui, vider',
+            cancelButtonText: 'Annuler'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                panier = {};
+                localStorage.removeItem('panier');
+                updatePanierBadge();
+                location.reload(); // recharge la page pour effacer les lignes
+                Swal.fire('Vidé !', 'Votre panier a été vidé.', 'success');
+            }
+        });
+    }
+
+    document.getElementById('pays').addEventListener('change', function () {
+    const autrePays = document.getElementById('autre-pays-container');
+    const autreInput = document.getElementById('autre_pays');
+
+    if (this.value === 'autre') {
+        autrePays.style.display = 'block';
+        autreInput.setAttribute('required', 'required');
+    } else {
+        autrePays.style.display = 'none';
+        autreInput.removeAttribute('required');
+    }
+    });
+
+
+    // Mise à jour badge "Panier (n)"
+    function updatePanierBadge() {
+        let total = 0;
+        for (let key in panier) {
+            total += panier[key][0];
+        }
+        const panierBtn = document.getElementById("panier");
+        if (panierBtn) {
+            panierBtn.innerHTML = "Panier (" + total + ")";
+        }
+    }
+
+    // Affiche contenu dans le popover Bootstrap
+    function afficherContenuPanier() {
+        if (Object.keys(panier).length === 0) {
+            return "Votre panier est vide.";
+        }
+
+        let liste = "<ul>";
+        for (const id in panier) {
+            const item = panier[id];
+            liste += `<li>${item[1]} - Qté : ${item[0]}</li>`;
+        }
+        liste += "</ul>";
+        return liste;
+    }
+
+    // Initialiser le popover du panier en haut
+    const boutonPanier = document.getElementById('panier');
+    if (boutonPanier) {
+        boutonPanier.setAttribute('data-bs-content', afficherContenuPanier());
+        boutonPanier.setAttribute('data-bs-html', 'true');
+
+        let popoverInstance = bootstrap.Popover.getInstance(boutonPanier);
+        if (popoverInstance) popoverInstance.dispose();
+        new bootstrap.Popover(boutonPanier);
+    }
+
+    $('#items').val(JSON.stringify(panier));
+    
+document.querySelector('form').addEventListener('submit', function () {
+    let panier = JSON.parse(localStorage.getItem('panier')) || {};
+    let items = [];
+
+    for (let id in panier) {
+        if (panier.hasOwnProperty(id)) {
+            const produit = panier[id];
+            if (Array.isArray(produit)) {
+                const [quantite, nom] = produit;
+                items.push(`${nom} (x${quantite})`);
+            } else {
+                items.push(`${id} (x${panier[id]})`);
+            }
+        }
+    }
+
+    document.getElementById('items-field').value = items.join(', ');
+});
+
+</script>
+
+{% endblock %}

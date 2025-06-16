@@ -1,0 +1,161 @@
+{% extends "shop/base.html" %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-12">
+    <form class="card card-sm">
+      <div class="card-body row no-gutters align-items-center">
+        <div class="col">
+          <input type="search" placeholder="Entrez le nom du produit que vous cherchez" name="item-name" class="form-control form-control-borderless">
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-success">Recherche</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row mt-4">
+  {% for product in product_object %}
+  <div class="col-md-3">
+    <div class="card mb-4">
+      <img src="{{ product.image }}" alt="{{ product.title }}" class="card-img-top">
+      <div class="card-body">
+        <h5 id="aa{{ product.id }}" class="card-title">{{ product.title }}</h5>
+        <p id="price{{ product.id }}" class="card-text" style="color: orange;">{{ product.price }} GNF</p>
+        <a href="{{ product.id }}" class="btn btn-warning">Voir</a>
+        <button id="{{ product.id }}" class="btn ted btn-success">Ajouter</button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row mt-3">
+  <div class="col-md-6 offset-md-3">
+    <ul class="pagination justify-content-center">
+      {% if product_object.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ product_object.previous_page_number }}">Précédent</a>
+      </li>
+      {% endif %}
+      <li class="page-item active">
+        <a class="page-link" href="?page={{ product_object.number }}">{{ product_object.number }}</a>
+      </li>
+      {% if product_object.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ product_object.next_page_number }}">Suivant</a>
+      </li>
+      {% endif %}
+    </ul>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script type="text/javascript">
+let panier = {};
+
+// Récupérer le panier depuis localStorage s'il existe
+if (localStorage.getItem('panier') !== null) {
+  panier = JSON.parse(localStorage.getItem('panier'));
+}
+
+// Afficher panier au chargement
+AfficherListe(panier);
+updatePanierBadge();
+
+$(document).on('click', '.ted', function () {
+  const item_id = this.id.toString();
+  const nom = document.getElementById("aa" + item_id)?.innerText || "Inconnu";
+  const prixTxt = document.getElementById("price" + item_id).innerText.replace(" GNF", "").trim();
+  const prix = parseFloat(prixTxt);
+
+  if (panier[item_id] !== undefined) {
+    panier[item_id][0] += 1; // quantité
+    panier[item_id][2] = panier[item_id][0] * prix; // total
+  } else {
+    panier[item_id] = [1, nom, prix]; // [quantité, nom, total]
+  }
+
+  localStorage.setItem('panier', JSON.stringify(panier));
+  updatePanierBadge();
+  AfficherListe(panier);
+});
+
+// Met à jour le badge "Panier (x)"
+function updatePanierBadge() {
+  let total = 0;
+  for (let key in panier) {
+    total += panier[key][0];
+  }
+  document.getElementById("panier").innerHTML = `Panier (${total})`;
+}
+
+// Affiche contenu du panier dans le popover
+function AfficherListe(panier) {
+  let panierString = "<h5>Voici votre liste</h5><ul>";
+  let index = 1;
+  let totalGeneral = 0;
+
+  for (let x in panier) {
+    const quantite = panier[x][0];
+    const nom = panier[x][1];
+    const total = panier[x][2];
+    totalGeneral += total;
+
+    panierString += `<li>${index}. ${nom} — Qté : ${quantite} — Total : ${total.toFixed(2)} GNF</li>`;
+    index++;
+  }
+
+  panierString += "</ul><hr>";
+  panierString += `<strong>Total général : ${totalGeneral.toFixed(2)} GNF</strong><br><br>`;
+  panierString += "<a href='/checkout' class='btn btn-primary me-2'>Checkout</a>";
+  panierString += "<button onclick='viderPanier()' class='btn btn-danger'>Vider</button>";
+
+  const boutonPanier = document.getElementById('panier');
+  boutonPanier.setAttribute('data-bs-content', panierString);
+  boutonPanier.setAttribute('data-bs-html', 'true');
+
+  let popover = bootstrap.Popover.getInstance(boutonPanier);
+  if (popover) {
+    popover.dispose();
+  }
+  new bootstrap.Popover(boutonPanier);
+}
+
+function viderPanier() {
+  if (Object.keys(panier).length === 0) {
+    Swal.fire({
+      icon: 'info',
+      title: 'Panier vide',
+      text: "Il n'y a rien à vider dans le panier.",
+    });
+    return;
+  }
+
+  Swal.fire({
+    title: 'Êtes-vous sûr ?',
+    text: "Vous êtes sur le point de vider votre panier.",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Oui, vider',
+    cancelButtonText: 'Annuler'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      panier = {};
+      localStorage.removeItem('panier');
+      updatePanierBadge();
+      AfficherListe(panier);
+      Swal.fire('Vidé !', 'Votre panier a été vidé.', 'success');
+    }
+  });
+}
+</script>
+{% endblock %}
