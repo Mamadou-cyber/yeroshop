@@ -1,6 +1,10 @@
 from django.shortcuts import render, redirect
 from .models import Product, Commande
 from django.core.paginator import Paginator
+from django.http import HttpResponse
+
+def healthz(request):
+    return HttpResponse("OK")
 
 def index(request):
     product_object = Product.objects.all()
